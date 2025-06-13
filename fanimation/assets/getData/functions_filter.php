@@ -2,9 +2,8 @@
 require_once 'includes/db_connect.php';
 
 // Get filtered products with pagination
-function getProducts($conn, $records_per_page, $page, $search, $category, $min_price, $max_price, $color = '', $brand = '', $five_star_only = false)
+function getProducts($conn, $records_per_page, $page, $search, $category, $min_price, $max_price, $color = '', $brand = '', $five_star_only = false, $product_id = null)
 {
-    // Kiểm tra trạng thái kết nối
     if (!$conn->ping()) {
         error_log("Kết nối cơ sở dữ liệu đã bị đóng trong getProducts.");
         return ['products' => null, 'total_pages' => 0, 'total_records' => 0];
@@ -25,7 +24,6 @@ function getProducts($conn, $records_per_page, $page, $search, $category, $min_p
         $types .= 'sss';
     }
 
-    // Chỉ áp dụng điều kiện category nếu không có tìm kiếm
     if (!empty($category) && empty($search)) {
         $conditions[] = "p.category_id = ?";
         $params[] = $category;
@@ -56,12 +54,16 @@ function getProducts($conn, $records_per_page, $page, $search, $category, $min_p
         $types .= 'i';
     }
 
+    if ($product_id !== null) {
+        $conditions[] = "p.id = ?";
+        $params[] = $product_id;
+        $types .= 'i';
+    }
+
     $where_clause = !empty($conditions) ? " WHERE " . implode(" AND ", $conditions) : "";
 
-    // Xây dựng mệnh đề HAVING nếu $five_star_only được bật
     $having_clause = $five_star_only ? " HAVING AVG(f.rating) = 5" : "";
 
-    // Get total records
     $sql_total = "SELECT COUNT(DISTINCT p.id) as total FROM products p
                   LEFT JOIN product_variants pv ON p.id = pv.product_id
                   LEFT JOIN brands b ON p.brand_id = b.id
@@ -85,7 +87,6 @@ function getProducts($conn, $records_per_page, $page, $search, $category, $min_p
 
     $total_pages = $total_records > 0 ? ceil($total_records / $records_per_page) : 0;
 
-    // Get records for current page with improved image handling
     $sql = "SELECT p.id AS product_id, p.name AS product_name, p.price AS product_price, 
             GROUP_CONCAT(DISTINCT c.hex_code) AS colour_hex_code, 
             COALESCE((SELECT image_url FROM product_images pi WHERE pi.product_id = p.id AND pi.u_primary = 1 LIMIT 1), 
@@ -236,18 +237,17 @@ if ($action === 'getStock' || $action === 'checkStock') {
 function checkStockAvailability($product_id, $color_id, $quantity, $conn)
 {
     error_log("Checking stock: product_id=$product_id, color_id=$color_id, quantity=$quantity");
-    error_log("Executing stock query: SELECT stock FROM product_variants WHERE id = $product_id AND color_id = $color_id");
     if (!$conn->ping()) {
         error_log("Database connection closed in checkStockAvailability.");
         return ['status' => 'error', 'message' => 'Lỗi kết nối cơ sở dữ liệu', 'stock' => 0];
     }
 
-    if (!$product_id || !$color_id || $color_id === 0) {
-        error_log("Invalid input: product_id=$product_id, color_id=$color_id");
+    if (!$product_id) {
+        error_log("Invalid input: product_id=$product_id");
         return ['status' => 'error', 'message' => 'Dữ liệu đầu vào không hợp lệ', 'stock' => 0];
     }
 
-    // Kiểm tra product_id và color_id
+    // Kiểm tra product_id
     $stmt = $conn->prepare("SELECT COUNT(*) as count FROM products WHERE id = ?");
     if ($stmt === false) {
         error_log("Prepare failed for product check: " . $conn->error);
@@ -263,29 +263,23 @@ function checkStockAvailability($product_id, $color_id, $quantity, $conn)
         return ['status' => 'error', 'message' => 'Sản phẩm không tồn tại', 'stock' => 0];
     }
 
-    $stmt = $conn->prepare("SELECT COUNT(*) as count FROM colors WHERE id = ?");
-    if ($stmt === false) {
-        error_log("Prepare failed for color check: " . $conn->error);
-        return ['status' => 'error', 'message' => 'Lỗi kiểm tra màu', 'stock' => 0];
-    }
-    $stmt->bind_param('i', $color_id);
-    $stmt->execute();
-    $color_exists = $stmt->get_result()->fetch_assoc()['count'] > 0;
-    $stmt->close();
-
-    if (!$color_exists) {
-        error_log("Color not found: color_id=$color_id");
-        return ['status' => 'error', 'message' => 'Màu không tồn tại', 'stock' => 0];
-    }
-
-    // Update the query to match the correct column name
-    $stmt = $conn->prepare("SELECT stock FROM product_variants WHERE product_id = ? AND color_id = ?");
-    if ($stmt === false) {
-        error_log("Prepare failed in checkStockAvailability: " . $conn->error);
-        return ['status' => 'error', 'message' => 'Lỗi chuẩn bị truy vấn stock: ' . $conn->error, 'stock' => 0];
+    // Nếu không có color_id, lấy stock mà không cần điều kiện color_id
+    if (empty($color_id) || $color_id == 0) {
+        $stmt = $conn->prepare("SELECT stock FROM product_variants WHERE product_id = ? LIMIT 1");
+        if ($stmt === false) {
+            error_log("Prepare failed in checkStockAvailability: " . $conn->error);
+            return ['status' => 'error', 'message' => 'Lỗi chuẩn bị truy vấn stock: ' . $conn->error, 'stock' => 0];
+        }
+        $stmt->bind_param('i', $product_id);
+    } else {
+        $stmt = $conn->prepare("SELECT stock FROM product_variants WHERE product_id = ? AND color_id = ?");
+        if ($stmt === false) {
+            error_log("Prepare failed in checkStockAvailability: " . $conn->error);
+            return ['status' => 'error', 'message' => 'Lỗi chuẩn bị truy vấn stock: ' . $conn->error, 'stock' => 0];
+        }
+        $stmt->bind_param('ii', $product_id, $color_id);
     }
 
-    $stmt->bind_param('ii', $product_id, $color_id);
     if (!$stmt->execute()) {
         error_log("Execute failed in checkStockAvailability: " . $stmt->error);
         $stmt->close();
