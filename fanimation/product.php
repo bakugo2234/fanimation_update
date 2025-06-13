@@ -148,21 +148,22 @@ $total_pages = $data['total_pages'];
         <?php endif; ?>
 
         <!-- Phân trang -->
-        <?php if ($total_pages > 1): ?>
-            <nav aria-label="Page navigation" class="mb-3">
-                <ul class="pagination justify-content-center">
-                    <?php for ($i = 1; $i <= $total_pages; $i++): ?>
-                        <li class="page-item <?php echo $page === $i ? 'active' : ''; ?>">
-                            <a class="page-link bg-danger border-0" 
-                               href="?page=<?php echo $i; ?>&search=<?php echo urlencode($search); ?>&category=<?php echo urlencode($category); ?>&min_price=<?php echo urlencode($min_price); ?>&max_price=<?php echo urlencode($max_price); ?>&color=<?php echo urlencode($color); ?>&brand=<?php echo urlencode($brand); ?>">
-                               <?php echo $i; ?>
-                            </a>
-                        </li>
-                    <?php endfor; ?>
-                </ul>
-            </nav>
-        <?php endif; ?>
-    </div>
+        <?php if ($total_pages >= 1): ?>
+    <nav aria-label="Page navigation" class="mb-3">
+        <ul class="pagination justify-content-center">
+            <?php for ($i = 1; $i <= $total_pages; $i++): ?>
+                <li class="page-item <?php echo $page === $i ? 'active' : ''; ?>">
+                    <a class="page-link bg-danger border-0" 
+                       href="?page=<?php echo $i; ?>&search=<?php echo urlencode($search); ?>&category=<?php echo urlencode($category); ?>&min_price=<?php echo urlencode($min_price); ?>&max_price=<?php echo urlencode($max_price); ?>&color=<?php echo urlencode($color); ?>&brand=<?php echo urlencode($brand); ?>">
+                       <?php echo $i; ?>
+                    </a>
+                </li>
+            <?php endfor; ?>
+        </ul>
+    </nav>
+<?php else: ?>
+    <div class="alert alert-info">Tổng số trang: <?php echo $total_pages; ?>, Tổng số bản ghi: <?php echo $data['total_records']; ?></div>
+<?php endif; ?>
 </div>
 
 <script>
