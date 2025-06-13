@@ -83,6 +83,7 @@ function getProducts($conn, $records_per_page, $page, $search, $category, $min_p
     $stmt_total->execute();
     $result_total = $stmt_total->get_result();
     $total_records = $result_total->fetch_assoc()['total'] ?? 0;
+    error_log("Total records: $total_records");
     $stmt_total->close();
 
     $total_pages = $total_records > 0 ? ceil($total_records / $records_per_page) : 0;
