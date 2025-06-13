@@ -1,6 +1,7 @@
 <?php
 // Đảm bảo không có output trước khi khởi tạo session
 ob_start();
+
 // Đảm bảo kết nối cơ sở dữ liệu
 require_once 'includes/db_connect.php';
 include 'includes/header.php';
@@ -389,13 +390,13 @@ $stmt->close();
         circle.addEventListener('click', function() {
             selectedColorId = this.getAttribute('data-color-id');
             const imageUrl = this.getAttribute('data-image');
-            const stock = parseInt(this.getAttribute('data-stock')) || 0;
+            const initialStock = parseInt(this.getAttribute('data-stock')) || 0;
 
             // Cập nhật giao diện màu được chọn
             document.querySelectorAll('.color-circle').forEach(c => c.classList.remove('selected'));
             this.classList.add('selected');
 
-            // Cập nhật hình ảnh
+            // Cập nhật hình ảnh ngay lập tức
             if (mainImage && imageUrl) {
                 mainImage.src = imageUrl;
                 document.querySelectorAll('#productCarousel .carousel-item').forEach(item => {
@@ -407,24 +408,13 @@ $stmt->close();
                 console.log('Selected color ID:', selectedColorId, 'Image:', imageUrl);
             }
 
-            // Cập nhật tồn kho và số lượng tối đa
-            if (stockDisplay) {
-                stockDisplay.textContent = stock > 0 ? `${stock} sản phẩm có sẵn` : 'Hết hàng';
-            }
-            if (quantityInput) {
-                quantityInput.max = stock > 0 ? stock : 1;
-                if (parseInt(quantityInput.value) > stock) {
-                    quantityInput.value = stock > 0 ? stock : 1;
-                }
-            }
-
-            // Gửi yêu cầu AJAX để lấy tồn kho mới nhất (tùy chọn)
+            // Gửi yêu cầu AJAX để lấy tồn kho chính xác
             fetch('assets/getData/functions_filter.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
                 },
-                body: `action=getStock&product_id=<?php echo $product['product_id']; ?>&color_id=${selectedColorId}`
+                body: `action=checkStock&product_id=<?php echo $product['product_id']; ?>&color_id=${selectedColorId}`
             })
             .then(response => {
                 if (!response.ok) {
@@ -447,7 +437,11 @@ $stmt->close();
                 } else {
                     console.error('Error fetching stock:', data.message);
                     if (stockDisplay) {
-                        stockDisplay.textContent = 'Lỗi khi lấy tồn kho';
+                        stockDisplay.textContent = data.message || 'Lỗi khi lấy tồn kho';
+                    }
+                    // Nếu có lỗi, khôi phục ảnh mặc định
+                    if (mainImage && defaultImage) {
+                        mainImage.src = defaultImage;
                     }
                 }
             })
@@ -456,25 +450,31 @@ $stmt->close();
                 if (stockDisplay) {
                     stockDisplay.textContent = 'Lỗi khi lấy tồn kho';
                 }
+                // Nếu có lỗi, khôi phục ảnh mặc định
+                if (mainImage && defaultImage) {
+                    mainImage.src = defaultImage;
+                }
             });
-        });
 
-        circle.addEventListener('mouseover', function() {
-            const imageUrl = this.getAttribute('data-image');
-            if (mainImage && imageUrl) {
-                mainImage.src = imageUrl;
-                console.log('Hovering over color, new image src:', imageUrl);
-            }
-        });
+            // Xử lý hover và mouseout (không cần thay đổi)
+            circle.addEventListener('mouseover', function() {
+                const imageUrl = this.getAttribute('data-image');
+                if (mainImage && imageUrl) {
+                    mainImage.src = imageUrl;
+                    console.log('Hovering over color, new image src:', imageUrl);
+                }
+            });
 
-        circle.addEventListener('mouseout', function() {
-            if (mainImage && defaultImage && selectedColorId === null) {
-                mainImage.src = defaultImage;
-                console.log('Mouse out, reverting to default image:', defaultImage);
-            }
+            circle.addEventListener('mouseout', function() {
+                if (mainImage && defaultImage && selectedColorId === null) {
+                    mainImage.src = defaultImage;
+                    console.log('Mouse out, reverting to default image:', defaultImage);
+                }
+            });
         });
     });
 
+    // Xử lý nút "MUA NGAY" (giữ nguyên nhưng thêm kiểm tra tồn kho)
     document.querySelector('.add-to-cart').addEventListener('click', function() {
         const productId = this.getAttribute('data-id');
         const quantity = document.getElementById('quantity').value;
@@ -484,32 +484,48 @@ $stmt->close();
             return;
         }
 
-        console.log('Adding to cart:', {
-            productId,
-            selectedColorId,
-            quantity
-        });
-
-        // Thêm vào giỏ hàng mà không kiểm tra tồn kho
-        fetch('add_to_cart.php', {
+        // Kiểm tra tồn kho trước khi thêm
+        fetch('assets/getData/functions_filter.php', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
             },
-            body: `action=add&product_id=${productId}&color_id=${selectedColorId}&quantity=${quantity}`
+            body: `action=checkStock&product_id=${productId}&color_id=${selectedColorId}&quantity=${quantity}`
         })
         .then(response => response.json())
-        .then(cartData => {
-            console.log('Response from add_to_cart:', cartData);
-            if (cartData.status === 'success') {
-                alert(cartData.message);
+        .then(data => {
+            if (data.status === 'success') {
+                if (data.stock >= quantity) {
+                    fetch('add_to_cart.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                        },
+                        body: `action=add&product_id=${productId}&color_id=${selectedColorId}&quantity=${quantity}`
+                    })
+                    .then(response => response.json())
+                    .then(cartData => {
+                        console.log('Response from add_to_cart:', cartData);
+                        if (cartData.status === 'success') {
+                            alert(cartData.message);
+                        } else {
+                            alert(cartData.message);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error adding to cart:', error);
+                        alert('Đã xảy ra lỗi khi thêm vào giỏ hàng!');
+                    });
+                } else {
+                    alert('Số lượng tồn kho không đủ!');
+                }
             } else {
-                alert(cartData.message);
+                alert(data.message);
             }
         })
         .catch(error => {
-            console.error('Error adding to cart:', error);
-            alert('Đã xảy ra lỗi khi thêm vào giỏ hàng!');
+            console.error('Fetch error:', error);
+            alert('Lỗi khi kiểm tra tồn kho!');
         });
     });
 
