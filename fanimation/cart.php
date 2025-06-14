@@ -3,26 +3,33 @@ require_once 'includes/db_connect.php';
 include 'includes/header.php';
 include 'assets/getData/functions_filter.php';
 
+// Xác định identifier dựa trên trạng thái đăng nhập
+$user_id = isset($_SESSION['user_id']) ? intval($_SESSION['user_id']) : null;
+$session_id = !$user_id ? session_id() : null;
+$identifier = $user_id ? 'user_id' : 'session_id';
+$identifier_value = $user_id ?: $session_id;
 
-// Lấy giỏ hàng từ cơ sở dữ liệu
-$user_id = $_SESSION['user_id'];
-error_log("Fetching cart for user_id: $user_id");
-$cart_query = "SELECT * FROM Carts WHERE user_id = ?";
+error_log("Fetching cart for $identifier: $identifier_value");
+$cart_query = "SELECT c.*, pv.color_id, pv.stock 
+               FROM Carts c 
+               LEFT JOIN product_variants pv ON c.product_variant_id = pv.id 
+               WHERE c.$identifier = ?";
 $stmt = $conn->prepare($cart_query);
-$stmt->bind_param('i', $user_id);
+$stmt->bind_param('s', $identifier_value);
 $stmt->execute();
 $cart_result = $stmt->get_result();
 
 $_SESSION['cart'] = [];
 while ($row = $cart_result->fetch_assoc()) {
-    $key = $row['product_id'] . '_' . ($row['color_id'] ?? 'NULL') . '_' . ($row['size_id'] ?? 'NULL');
+    $key = $row['product_variant_id'] . '_' . ($row['color_id'] ?? 'NULL');
     $cart_id = $row['id'] ?? null;
-    error_log("Cart item: key=$key, cart_id=$cart_id, product_id={$row['product_id']}, color_id={$row['color_id']}, size_id={$row['size_id']}, quantity={$row['quantity']}");
+    error_log("Cart item: key=$key, cart_id=$cart_id, product_variant_id={$row['product_variant_id']}, color_id={$row['color_id']}, quantity={$row['quantity']}, stock={$row['stock']}");
     $_SESSION['cart'][$key] = [
         'cart_id' => $cart_id,
-        'product_id' => $row['product_id'],
+        'product_variant_id' => $row['product_variant_id'],
         'color' => $row['color_id'] ? getColorHex($row['color_id']) : 'No color',
-        'quantity' => $row['quantity']
+        'quantity' => $row['quantity'],
+        'stock' => $row['stock'] ?? 0
     ];
 }
 
@@ -36,8 +43,6 @@ function getColorHex($color_id)
     $result = $stmt->get_result()->fetch_assoc();
     return $result['hex_code'] ?? '#000000';
 }
-
-
 ?>
 
 <div class="container mt-4">
@@ -50,7 +55,6 @@ function getColorHex($color_id)
                 <tr>
                     <th>Sản phẩm</th>
                     <th>Màu</th>
-                    <th>Kích thước</th>
                     <th>Số lượng</th>
                     <th>Tổng</th>
                     <th>Hành động</th>
@@ -61,44 +65,47 @@ function getColorHex($color_id)
                 $total = 0;
                 foreach ($_SESSION['cart'] as $key => $item):
                     $cart_id = $item['cart_id'];
-                    $product_id = $item['product_id'];
+                    $product_variant_id = $item['product_variant_id'];
                     $color = $item['color'];
-                    $size = $item['size'];
                     $quantity = $item['quantity'];
+                    $stock = $item['stock'];
 
-                    $product_query = "SELECT p.id, p.name, p.price FROM Products p WHERE p.id = ?";
-                    $stmt = $conn->prepare($product_query);
-                    $stmt->bind_param('i', $product_id);
+                    // Lấy thông tin sản phẩm từ product_variants và products
+                    $variant_query = "SELECT pv.product_id, p.name, p.price 
+                                    FROM product_variants pv 
+                                    JOIN products p ON pv.product_id = p.id 
+                                    WHERE pv.id = ?";
+                    $stmt = $conn->prepare($variant_query);
+                    $stmt->bind_param('i', $product_variant_id);
                     $stmt->execute();
-                    $product = $stmt->get_result()->fetch_assoc();
+                    $variant = $stmt->get_result()->fetch_assoc();
 
-                    if (!$product) {
+                    if (!$variant) {
                         unset($_SESSION['cart'][$key]);
                         continue;
                     }
 
-                    $price = floatval($product["price"]);
+                    $price = floatval($variant["price"]);
                     $subtotal = $price * $quantity;
                     $total += $subtotal;
                 ?>
-                    <tr data-cart-id="<?php echo $cart_id; ?>">
-                        <td><?= htmlspecialchars($product['name']); ?></td>
+                    <tr data-cart-id="<?php echo $cart_id; ?>" data-stock="<?php echo $stock; ?>">
+                        <td><?= htmlspecialchars($variant['name']); ?></td>
                         <td style="background-color: <?= htmlspecialchars($color); ?>;"></td>
-                        <td><?= htmlspecialchars($size); ?></td>
                         <td>
                             <button class="btn btn-sm btn-primary decrease-btn" data-cart-id="<?php echo $cart_id; ?>" <?php echo $quantity <= 1 ? 'disabled' : ''; ?>>-</button>
                             <span id="qty-<?php echo $cart_id; ?>"><?= intval($quantity); ?></span>
-                            <button class="btn btn-sm btn-primary increase-btn" data-cart-id="<?php echo $cart_id; ?>">+</button>
+                            <button class="btn btn-sm btn-primary increase-btn" data-cart-id="<?php echo $cart_id; ?>" data-stock="<?php echo $stock; ?>">+</button>
                         </td>
-                        <td id="subtotal-<?php echo $cart_id; ?>"><?= number_format($subtotal); ?> VND</td>
+                        <td id="subtotal-<?php echo $cart_id; ?>"><?= number_format($subtotal, 0, '', '.'); ?> VND</td>
                         <td>
                             <button class="btn btn-danger remove-btn" data-cart-id="<?php echo $cart_id; ?>">Xóa</button>
                         </td>
                     </tr>
                 <?php endforeach; ?>
                 <tr>
-                    <td colspan="4"><b>Tổng cộng:</b></td>
-                    <td id="total"><?= number_format($total); ?> VND</td>
+                    <td colspan="3"><b>Tổng cộng:</b></td>
+                    <td id="total"><?= number_format($total, 0, '', '.'); ?> VND</td>
                     <td></td>
                 </tr>
             </tbody>
@@ -115,6 +122,21 @@ function getColorHex($color_id)
         // Tăng số lượng
         $('.increase-btn').click(function() {
             var cart_id = $(this).data('cart-id');
+            var stock = $(this).data('stock');
+            var qtyElement = $('#qty-' + cart_id);
+            var currentQty = parseInt(qtyElement.text());
+
+            if (currentQty >= stock) {
+                Swal.fire({
+                    title: 'Lỗi',
+                    text: 'Số lượng đã đạt giới hạn tồn kho (' + stock + ')!',
+                    icon: 'error',
+                    confirmButtonText: 'OK',
+                    confirmButtonColor: '#d33'
+                });
+                return;
+            }
+
             updateCart(cart_id, 'increase');
         });
 
@@ -149,34 +171,12 @@ function getColorHex($color_id)
                 method: 'POST',
                 data: {
                     action: action,
-                    cart_id: cart_id,
-                    quantity: action === 'increase' ? 1 : -1
+                    cart_id: cart_id
                 },
                 dataType: 'json',
                 success: function(response) {
                     if (response.status === 'success') {
-                        var qtyElement = $('#qty-' + cart_id);
-                        var currentQty = parseInt(qtyElement.text());
-                        var newQty = action === 'increase' ? currentQty + 1 : currentQty - 1;
-                        qtyElement.text(newQty);
-
-                        if (newQty <= 1) {
-                            $('.decrease-btn[data-cart-id="' + cart_id + '"]').prop('disabled', true);
-                        } else {
-                            $('.decrease-btn[data-cart-id="' + cart_id + '"]').prop('disabled', false);
-                        }
-
-                        var product = <?php echo json_encode($product); ?>;
-                        var price = product ? parseFloat(product.price) : 0;
-                        var subtotalElement = $('#subtotal-' + cart_id);
-                        var newSubtotal = price * newQty;
-                        subtotalElement.text(newSubtotal.toLocaleString() + ' VND');
-
-                        var totalElement = $('#total');
-                        var currentTotal = parseFloat(totalElement.text().replace(/[^0-9.-]+/g, ""));
-                        var delta = action === 'increase' ? price : -price;
-                        var newTotal = currentTotal + delta;
-                        totalElement.text(newTotal.toLocaleString() + ' VND');
+                        location.reload(); // Tải lại trang để cập nhật giỏ hàng
                     } else {
                         alert(response.message || 'Cập nhật thất bại');
                     }
@@ -203,20 +203,7 @@ function getColorHex($color_id)
                 dataType: 'json',
                 success: function(response) {
                     if (response.status === 'success') {
-                        $('tr[data-cart-id="' + cart_id + '"]').remove();
-
-                        var qty = parseInt($('#qty-' + cart_id).text());
-                        var product = <?php echo json_encode($product); ?>;
-                        var price = product ? parseFloat(product.price) : 0;
-                        var totalElement = $('#total');
-                        var currentTotal = parseFloat(totalElement.text().replace(/[^0-9.-]+/g, ""));
-                        var newTotal = currentTotal - (price * qty);
-                        totalElement.text(newTotal.toLocaleString() + ' VND');
-
-                        if ($('tbody tr').length === 1) {
-                            $('.container.mt-4').html('<p class="text-center">Giỏ hàng của bạn đang trống.</p>');
-                        }
-
+                        location.reload(); // Tải lại trang để cập nhật giỏ hàng
                         Swal.fire({
                             title: 'Thành công!',
                             text: response.message,
