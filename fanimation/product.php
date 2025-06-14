@@ -17,6 +17,14 @@ $brand = isset($_GET['brand']) && is_numeric($_GET['brand']) ? (int)$_GET['brand
 $data = getProducts($conn, $records_per_page, $page, $search, $category, $min_price, $max_price, $color, $brand);
 $products = $data['products'];
 $total_pages = $data['total_pages'];
+
+// Lọc trùng lặp dựa trên product_id
+$displayed_products = [];
+while ($product = $products->fetch_assoc()) {
+    if (!isset($displayed_products[$product['product_id']])) {
+        $displayed_products[$product['product_id']] = $product;
+    }
+}
 ?>
 
 <style>
@@ -91,10 +99,10 @@ $total_pages = $data['total_pages'];
 
 <div class="w-75 mx-auto">
     <div class="row">
-        <?php if ($products->num_rows === 0): ?>
+        <?php if (empty($displayed_products)): ?>
             <div class="alert alert-warning text-center">Không tìm thấy sản phẩm nào.</div>
         <?php else: ?>
-            <?php while ($product = $products->fetch_assoc()): ?>
+            <?php foreach ($displayed_products as $product): ?>
                 <div class="col-lg-3 col-md-4 col-sm-6 mb-4 position-relative">
                     <a href="detail_product.php?id=<?php echo $product['product_id']; ?>">
                         <div class="card product-card w-63 h-auto position-relative">
@@ -107,7 +115,7 @@ $total_pages = $data['total_pages'];
                                 <img src="<?php echo htmlspecialchars($product['product_image'] ?: 'images/product/aviara1.jpg'); ?>" 
                                      class="card-img-top current-image" 
                                      alt="<?php echo htmlspecialchars($product['product_name']); ?>" 
-                                     id="main-image-<?php echo $product['product_id']; ?>" 
+                                     id="main-image-<?php echo $product['product_id']; ?>-0" 
                                      data-default-image="<?php echo htmlspecialchars($product['product_image'] ?: 'images/product/aviara1.jpg'); ?>">
                             </div>
                             <div class="card-body text-center">
@@ -131,7 +139,7 @@ $total_pages = $data['total_pages'];
                                             while ($variant = $variants->fetch_assoc()) {
                                                 $hex_color = $variant['hex_code'];
                                                 $image_url = $variant['image_url'] ?: 'images/product/default.jpg';
-                                                echo "<div class='color-circle' style='background-color: " . htmlspecialchars($hex_color) . " !important;' title='Color: " . htmlspecialchars($hex_color) . "' data-image='" . htmlspecialchars($image_url) . "' data-product-id='" . $product['product_id'] . "'></div>";
+                                                echo "<div class='color-circle' style='background-color: " . htmlspecialchars($hex_color) . " !important;' title='Color: " . htmlspecialchars($hex_color) . "' data-image='" . htmlspecialchars($image_url) . "' data-product-id='" . $product['product_id'] . "' data-index='0'></div>";
                                             }
                                         } else {
                                             echo "<div class='debug'>Không tìm thấy biến thể cho sản phẩm ID: " . $product['product_id'] . "</div>";
@@ -144,26 +152,27 @@ $total_pages = $data['total_pages'];
                         </div>
                     </a>
                 </div>
-            <?php endwhile; ?>
+            <?php endforeach; ?>
         <?php endif; ?>
 
         <!-- Phân trang -->
         <?php if ($total_pages >= 1): ?>
-    <nav aria-label="Page navigation" class="mb-3">
-        <ul class="pagination justify-content-center">
-            <?php for ($i = 1; $i <= $total_pages; $i++): ?>
-                <li class="page-item <?php echo $page === $i ? 'active' : ''; ?>">
-                    <a class="page-link bg-danger border-0" 
-                       href="?page=<?php echo $i; ?>&search=<?php echo urlencode($search); ?>&category=<?php echo urlencode($category); ?>&min_price=<?php echo urlencode($min_price); ?>&max_price=<?php echo urlencode($max_price); ?>&color=<?php echo urlencode($color); ?>&brand=<?php echo urlencode($brand); ?>">
-                       <?php echo $i; ?>
-                    </a>
-                </li>
-            <?php endfor; ?>
-        </ul>
-    </nav>
-<?php else: ?>
-    <div class="alert alert-info">Tổng số trang: <?php echo $total_pages; ?>, Tổng số bản ghi: <?php echo $data['total_records']; ?></div>
-<?php endif; ?>
+            <nav aria-label="Page navigation" class="mb-3">
+                <ul class="pagination justify-content-center">
+                    <?php for ($i = 1; $i <= $total_pages; $i++): ?>
+                        <li class="page-item <?php echo $page === $i ? 'active' : ''; ?>">
+                            <a class="page-link bg-danger border-0" 
+                               href="?page=<?php echo $i; ?>&search=<?php echo urlencode($search); ?>&category=<?php echo urlencode($category); ?>&min_price=<?php echo urlencode($min_price); ?>&max_price=<?php echo urlencode($max_price); ?>&color=<?php echo urlencode($color); ?>&brand=<?php echo urlencode($brand); ?>">
+                               <?php echo $i; ?>
+                            </a>
+                        </li>
+                    <?php endfor; ?>
+                </ul>
+            </nav>
+        <?php else: ?>
+            <div class="alert alert-info">Tổng số trang: <?php echo $total_pages; ?>, Tổng số bản ghi: <?php echo $data['total_records']; ?></div>
+        <?php endif; ?>
+    </div>
 </div>
 
 <script>
@@ -172,26 +181,27 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('Số lượng color-circle:', circles.length);
     circles.forEach(circle => {
         const productId = circle.getAttribute('data-product-id');
-        const defaultImage = document.getElementById('main-image-' + productId)?.getAttribute('data-default-image');
+        const index = circle.getAttribute('data-index');
+        const defaultImage = document.getElementById(`main-image-${productId}-${index}`)?.getAttribute('data-default-image');
         
         circle.addEventListener('mouseover', function() {
             const imageUrl = this.getAttribute('data-image');
-            const mainImage = document.getElementById('main-image-' + productId);
+            const mainImage = document.getElementById(`main-image-${productId}-${index}`);
             if (mainImage && imageUrl) {
                 mainImage.src = imageUrl;
-                console.log('Hovering over color, new image src:', imageUrl);
+                console.log(`Hovering over color for product ${productId}-${index}, new image src: ${imageUrl}`);
             } else {
-                console.error('Lỗi: Không tìm thấy mainImage hoặc imageUrl', { productId, imageUrl });
+                console.error('Lỗi: Không tìm thấy mainImage hoặc imageUrl', { productId, index, imageUrl });
             }
         });
 
         circle.addEventListener('mouseout', function() {
-            const mainImage = document.getElementById('main-image-' + productId);
+            const mainImage = document.getElementById(`main-image-${productId}-${index}`);
             if (mainImage && defaultImage) {
                 mainImage.src = defaultImage;
-                console.log('Mouse out, reverting to default image:', defaultImage);
+                console.log(`Mouse out, reverting to default image for product ${productId}-${index}: ${defaultImage}`);
             } else {
-                console.error('Lỗi: Không tìm thấy mainImage hoặc defaultImage', { productId, defaultImage });
+                console.error('Lỗi: Không tìm thấy mainImage hoặc defaultImage', { productId, index, defaultImage });
             }
         });
     });
