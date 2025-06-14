@@ -3,7 +3,7 @@ session_start();
 require_once 'includes/db_connect.php';
 $search = isset($_GET['search']) ? htmlspecialchars($_GET['search']) : '';
 // Khai báo biến $current_page
-$current_page = basename($_SERVER['PHP_SELF']);
+$current_page = basename($_SERVER['PHP_SELF']) ;
 // Debug: Kiểm tra giá trị của $current_page
 // echo "Current page: " . $current_page . "<br>";
 $is_help_center = ($current_page == 'help_center.php' || strpos($_SERVER['REQUEST_URI'], 'help_center.php#') !== false) ? 'active' : '';
@@ -81,7 +81,7 @@ $is_help_center = ($current_page == 'help_center.php' || strpos($_SERVER['REQUES
                 </a>
                 <ul class="dropdown-menu dropdown-menu-end">
                     <?php if (isset($_SESSION['user_id'])): ?>
-                        <li><a class="dropdown-item" href="account.php">Thông tin tài khoản</a></li>
+                        <li><a class="dropdown-item" href="profile.php">Thông tin tài khoản</a></li>
                         <li><a class="dropdown-item" href="logout.php">Đăng xuất</a></li>
                     <?php else: ?>
                         <li><a class="dropdown-item" href="login.php">Đăng nhập</a></li>
