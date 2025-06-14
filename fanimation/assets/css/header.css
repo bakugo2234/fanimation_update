@@ -64,6 +64,10 @@
   background-color: #deb887;
 }
 
+.navbar {
+  background-color: rgb(133, 55, 167);
+}
+
 .nav-link {
   color: #fff;
   font-weight: bold;
@@ -73,7 +77,7 @@
   display: none !important;
 }
 
-/* Tạo hiệu ứng underline cho tất cả nav-link, bao gồm dropdown-toggle */
+/* Tạo hiệu ứng underline cho tất cả nav-link */
 .navbar-nav .nav-link {
   position: relative;
   transition: all 0.3s ease;
@@ -85,25 +89,19 @@
   content: "";
   position: absolute;
   width: 0;
-  height: 1.8px;
-  background-color: white;
+  height: 2px;
+  background-color: #fff;
   left: 0;
-  bottom: 3px;
+  bottom: 0;
   transition: width 0.3s ease-in-out;
 }
 
-.navbar-brand img {
-  height: 3.5rem;
-  /* h-10 equivalent */
-  width: auto;
-  /* Maintain aspect ratio */
-}
-
-.navbar-nav .nav-link:hover::after {
+.navbar-nav .nav-link:hover::after,
+.navbar-nav .nav-link.active::after {
   width: 100%;
 }
 
-/* Hiệu ứng underline khi dropdown mở trên màn hình nhỏ */
+/* Hiệu ứng underline khi dropdown mở */
 .navbar-nav .nav-link.show::after {
   width: 100%;
 }
@@ -120,7 +118,6 @@
   width: 0;
   height: 1.8px;
   background-color: rgb(0, 0, 0);
-  /* Màu xanh Bootstrap để dễ nhìn, có thể đổi thành black hoặc màu khác */
   left: 0;
   bottom: 3px;
   transition: width 0.3s ease-in-out;
@@ -130,18 +127,9 @@
   width: 100%;
 }
 
-/* Đảm bảo dropdown menu có nền rõ ràng để underline hiển thị */
+/* Đảm bảo dropdown menu có nền rõ ràng */
 .dropdown-menu {
   background-color: #fff;
-  /* Nền trắng để underline màu xanh/đen dễ nhìn */
-}
-
-.navbar {
-  background-color: rgb(133, 55, 167);
-}
-
-.bi-person-circle {
-  color: #fff;
 }
 
 .bi-person-circle {
@@ -190,65 +178,43 @@
 
 .logo-container {
   background-color: rgb(133, 55, 167);
-  /* Purple gradient similar to the image */
   padding: 0.5rem 1rem;
-  /* p-4 */
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   border-radius: 0;
-  /* Remove rounded corners for navbar integration */
   max-width: none;
-  /* Remove max-width to fit navbar */
   margin: 0;
-  /* Remove margin for navbar alignment */
   height: 100%;
-  /* Center the container */
-
   text-decoration: none;
 }
 
 /* Fan icon styling */
 .fan-icon {
   font-size: 1.5rem;
-  /* Large icon size */
   color: #fff;
-  /* White color */
   margin-right: 0.5rem;
-  /* Space between icon and text */
   margin-bottom: 0;
-  /* Space below icon */
 }
 
 /* Fanimation text */
 .fanimation-text {
   font-family: "Arial", sans-serif;
-  /* Fallback font */
   font-size: 1.2rem;
-  /* Large text */
   font-weight: 700;
-  /* Bold */
   color: #fff;
-  /* White color */
   text-transform: uppercase;
-  /* All caps */
   letter-spacing: 0.05em;
-  /* Slight letter spacing */
   margin-bottom: 0rem;
-  /* Space below */
 }
 
 /* Ceiling fans text */
 .ceiling-fans-text {
   font-family: "Arial", sans-serif;
   font-size: 0.8rem;
-  /* Smaller text */
   font-weight: 400;
-  /* Normal weight */
   color: #fff;
-  /* White color */
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  /* Wider letter spacing */
 }
