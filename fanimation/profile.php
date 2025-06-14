@@ -11,10 +11,7 @@ require_once 'includes/db_connect.php';
 include 'includes/header.php';
 
 // Kiểm tra xem người dùng đã đăng nhập chưa
-if (isset($_SESSION['user_id'])) {
-    header("Location: login.php");
-    exit;
-}
+
 
 
 
@@ -45,7 +42,7 @@ if (!$user) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Xóa mọi đầu ra trước khi gửi JSON
     ob_clean();
-    
+
     $name = isset($_POST['name']) ? mysqli_real_escape_string($conn, trim($_POST['name'])) : $user['name'];
     $email = isset($_POST['email']) ? mysqli_real_escape_string($conn, trim($_POST['email'])) : $user['email'];
     $phone = isset($_POST['phone']) ? mysqli_real_escape_string($conn, trim($_POST['phone'])) : $user['phone'];
@@ -209,7 +206,7 @@ mysqli_stmt_close($stmt);
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="assets/js/main.js"></script>
-<?php 
+<?php
 include 'includes/footer.php';
 mysqli_close($conn);
 ob_end_flush();
