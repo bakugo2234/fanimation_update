@@ -3,13 +3,14 @@ session_start();
 require_once 'includes/db_connect.php';
 $search = isset($_GET['search']) ? htmlspecialchars($_GET['search']) : '';
 // Khai báo biến $current_page
-$current_page = basename($_SERVER['PHP_SELF']) ;
+$current_page = basename($_SERVER['PHP_SELF']);
 // Debug: Kiểm tra giá trị của $current_page
 // echo "Current page: " . $current_page . "<br>";
 $is_help_center = ($current_page == 'help_center.php' || strpos($_SERVER['REQUEST_URI'], 'help_center.php#') !== false) ? 'active' : '';
 ?>
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -26,6 +27,7 @@ $is_help_center = ($current_page == 'help_center.php' || strpos($_SERVER['REQUES
     <link rel="stylesheet" href="assets/css/index.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 </head>
+
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark">
         <div class="container-fluid">
@@ -73,21 +75,30 @@ $is_help_center = ($current_page == 'help_center.php' || strpos($_SERVER['REQUES
             <div class="search-container position-relative d-inline-block me-3">
                 <a href="cart.php" class="position-relative">
                     <i class="bi bi-cart3"></i>
+                    <?php
+                    $cart_count = isset($_SESSION['cart']) ? count($_SESSION['cart']) : 0;
+                    if ($cart_count > 0):
+                    ?>
+                        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                            <?php echo $cart_count; ?>
+                        </span>
+                    <?php endif; ?>
                 </a>
             </div>
             <div class="user-dropdown">
-                <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown" aria-label="User menu">
+                <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="User menu">
                     <i class="bi bi-person-circle"></i>
                 </a>
                 <ul class="dropdown-menu dropdown-menu-end">
                     <?php if (isset($_SESSION['user_id'])): ?>
                         <li><a class="dropdown-item" href="profile.php">Thông tin tài khoản</a></li>
                         <li><a class="dropdown-item" href="logout.php">Đăng xuất</a></li>
+                        <li><a class="dropdown-item" href="my_order.php">Đơn hàng của tôi</a></li>
                     <?php else: ?>
                         <li><a class="dropdown-item" href="login.php">Đăng nhập</a></li>
+                        <li><a class="dropdown-item" href="my_order.php">Đơn hàng của tôi</a></li>
                     <?php endif; ?>
                 </ul>
             </div>
         </div>
     </nav>
-    
