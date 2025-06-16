@@ -69,19 +69,7 @@ $stmt->close();
             }
         });
 
-        function updateCartCount() {
-            $.ajax({
-                url: 'cart.php',
-                type: 'GET',
-                dataType: 'json',
-                success: function(response) {
-                    $('#cart-count').text(response.count || 0);
-                },
-                error: function() {
-                    $('#cart-count').text('0');
-                }
-            });
-        }
+        
     </script>
 </body>
 </html>
